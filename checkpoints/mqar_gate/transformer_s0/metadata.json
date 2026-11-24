@@ -1,0 +1,142 @@
+{
+  "arch": "transformer",
+  "seed": 0,
+  "data_seed": 0,
+  "n_params": 6733056,
+  "param_breakdown": {
+    "embed": 153088,
+    "lm_head": 153088,
+    "norm_f": 256,
+    "block0_attn_mixer": 262144,
+    "block0_mlp+norms": 541184,
+    "block1_attn_mixer": 262144,
+    "block1_mlp+norms": 541184,
+    "block2_attn_mixer": 262144,
+    "block2_mlp+norms": 541184,
+    "block3_attn_mixer": 262144,
+    "block3_mlp+norms": 541184,
+    "block4_attn_mixer": 262144,
+    "block4_mlp+norms": 541184,
+    "block5_attn_mixer": 262144,
+    "block5_mlp+norms": 541184,
+    "block6_attn_mixer": 262144,
+    "block6_mlp+norms": 541184,
+    "block7_attn_mixer": 262144,
+    "block7_mlp+norms": 541184
+  },
+  "attention_layers": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "layer_types": [
+    "attn",
+    "attn",
+    "attn",
+    "attn",
+    "attn",
+    "attn",
+    "attn",
+    "attn"
+  ],
+  "config": {
+    "model": {
+      "d_model": 256,
+      "n_layers": 8,
+      "n_heads": 4,
+      "head_dim": 64,
+      "mlp_ratio": 4.0,
+      "gdn_expand_v": 1.0,
+      "gdn_conv_size": 4,
+      "rope_theta": 10000.0,
+      "init_std": 0.02,
+      "gdn_head_dim": 64
+    },
+    "data": {
+      "n_init": 2,
+      "n_stmts": 3,
+      "k_min": 0,
+      "k_max": 8,
+      "p_definition": 0.25,
+      "val_file": "data/mqar/val.jsonl",
+      "test_file": "data/mqar/test.jsonl",
+      "num_workers": 0,
+      "cache_dir": "data/train_cache",
+      "task": "mqar",
+      "n_choices": [
+        4,
+        8,
+        16,
+        32,
+        64,
+        128,
+        256
+      ],
+      "n_query": 8,
+      "val_per_n": 100,
+      "test_per_n": 250
+    },
+    "train": {
+      "steps": 5000,
+      "batch_size": 64,
+      "lr": 0.001,
+      "min_lr_ratio": 0.1,
+      "warmup_steps": 1000,
+      "weight_decay": 0.1,
+      "betas": [
+        0.9,
+        0.95
+      ],
+      "grad_clip": 1.0,
+      "amp_dtype": "bfloat16",
+      "log_interval": 50,
+      "eval_interval": 1000,
+      "ckpt_interval": 2000,
+      "mqar_abort_at_chance_step": 2000
+    },
+    "eval": {
+      "demo_counts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        6,
+        8
+      ],
+      "batch_size": 64
+    },
+    "experiment": {
+      "seeds": [
+        0,
+        1
+      ],
+      "archs": [
+        "transformer",
+        "pure",
+        "hybrid_early",
+        "hybrid_middle",
+        "hybrid_late"
+      ]
+    },
+    "arch": "transformer",
+    "seed": 0,
+    "data_seed": 0
+  },
+  "env": {
+    "python": "3.11.15",
+    "torch": "2.7.1+cu126",
+    "cuda": "12.6",
+    "hostname": "instance-z032i32s",
+    "cuda_visible_devices": "0",
+    "fla": "0.6.0",
+    "triton": "3.3.1",
+    "gpu": "NVIDIA L40",
+    "gpu_mem_gb": 44.4
+  }
+}

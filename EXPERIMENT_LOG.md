@@ -236,3 +236,21 @@ Chronological log of what was actually done. All times are server local (2026-11
   CUDA used the pinned Torch 2.7.1+cu126, Triton 3.3.1 and FLA 0.6.0 versions from the earlier runs.
   The Thunder CLI required an update from 2.0.71 to 2.3.0 before provisioning.
   No experiment training was launched before verification.
+
+## Phase 10 - MQAR sizing and learnability gates (2026-11-23 PST)
+
+- 18:46: Committed the §12 pre-registration (`8aca206`) before launching the sizing job.
+  The dedicated Thunder host had one NVIDIA L40 and six vCPUs.
+  GNU time and a dedicated headroom check were installed, and user scopes were verified to enforce 4 GiB of memory and 128 tasks.
+  The MQAR test file was withheld from the host for sizing and both validation gates.
+- 18:50: The single 400-step `hybrid_middle` sizing run (seed 99) completed with exit code 0.
+  GNU `/usr/bin/time -v` measured 1,640,728 KiB peak RSS (1.56 GiB), 115% average CPU and 223.97 seconds wall time including first-use kernel compilation, evaluation and checkpointing.
+  Steps 51–400 averaged 0.196 seconds per step.
+  Peak sampled main-process threads were 49 and peak sampled GPU memory was 11,753 MiB of 46,068 MiB.
+  The 4 GiB and 128-task caps leave headroom, so no cap change was needed.
+  No test data was used.
+- 18:51–18:52: Started the original transformer gate and stopped it at the user's request after the time estimate for the full pilot.
+  The last logged row was step 100, before the first validation evaluation or checkpoint.
+  No §12 gate or pilot decision was reached, and no original pilot arm was launched.
+- 18:53: The user chose a smaller validation-only comparison with an elapsed-time budget of 30 minutes.
+  This supersedes the requested §12 training plan for this session.
