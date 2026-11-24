@@ -196,3 +196,82 @@ These were designed after seeing Experiment-1 results. Each design and its readi
 - the same tables for the definition format;
 - the icl − definition gap per N (an H3 analogue);
 - accuracy by position of the queried binding at N = 128 (recency).
+
+## 12. MQAR load-scaling pilot (pre-registered 2026-11-23 PST, before sizing or training)
+
+**Question.** Does replacing one Gated DeltaNet mixer with causal softmax attention improve associative recall under binding load?
+The failed §11 pilot combined retrieval with modular arithmetic, which left both observed runs near chance even with explicit definitions.
+MQAR makes the supervised answer the stored value itself and uses an all-attention transformer as a positive control.
+
+### 12.1 Task, models and measurements
+
+- Use the 512 existing command tokens as keys and 64 new value tokens `v0` through `v63`.
+  Start each prompt with `<bos>` and emit `N` bindings `M k v ;` with distinct keys in random order and independent uniform values.
+  Then sample eight distinct bound keys in random order and emit `Q k -> v ;` for each, using four distinct queries at `N = 4`.
+  Supervise only the query answer tokens, with causal next-token cross-entropy over the full vocabulary.
+  At evaluation, take the argmax over the 64 legal values, for a chance accuracy of 1/64 (1.5625%).
+- Train with `N` uniform over `{4, 8, 16, 32, 64, 128, 256}` and a deterministic stream keyed by training-data seed and example index.
+  Architectures with the same seed share data and use that seed for initialization.
+  Freeze 100 validation prompts and 250 test prompts per `N`, from separate deterministic streams with split hashes in `data/mqar/data_manifest.json`.
+  This yields 400 validation and 1,000 test queries at `N = 4`, and 800 validation and 2,000 test queries at each other load.
+  Record zero-based binding rank from oldest to newest for every query.
+- Use the same eight pre-norm residual blocks, `d_model = 256`, four mixer heads, SwiGLU, untied embeddings, and optimizer as in `configs/base.yaml`, with the MQAR vocabulary in all arms.
+  In `transformer` every mixer uses the hybrids' existing causal SDPA and RoPE.
+  The three hybrids replace one mixer at zero-based layer 2, 4 or 6.
+  For `gdn_head_dim = 32`, reduce only the GDN query and key head width from 64 to 32, holding GDN value head width and attention head width at 64.
+  Record parameter counts without scaling any other model component to compensate.
+
+### 12.2 Sizing and validation-only learnability gates
+
+1. First size one otherwise representative `hybrid_middle` run (`gdn_head_dim = 64`, seed 99, 400 steps, batch 64) using GNU `/usr/bin/time -v`.
+   Record peak RSS, peak observed threads, CPU utilization, seconds per step and GPU memory headroom.
+   Use `num_workers = 0`, one thread for OMP, MKL, OpenBLAS and Inductor, the scheduler with `--max-jobs 2`, mandatory headroom checks and `systemd-run --user --scope` hard memory and task caps.
+   Use the initial 4 GiB and 128-task caps from Phase 8, with any sizing-driven operational adjustment logged before fan-out.
+   Run on the authorized Thunder Compute L40, with one GPU available and a hard ceiling of two distinct GPUs across concurrent jobs.
+   On the dedicated six-vCPU Thunder host, require at least 8 GiB available RAM, a one-minute load average below 4.5 and fewer than 2,048 tasks in the user slice.
+2. Run `transformer`, seed 0, for at most 5,000 steps, with batch 64 and validation only.
+   Abort at step 2,000 if the logged train answer loss over steps 1,951–2,000 is within 0.05 of `ln(64) = 4.158883`.
+   Diagnose task generation, masking and the learning rate from the existing train and validation evidence if the abort fires.
+   The gate passes if the step-5,000 validation query accuracy is at least 90% at `N = 16`.
+   If the transformer gate fails, stop and report the failure before running anything else.
+3. After the transformer passes, run `pure`, `gdn_head_dim = 64`, seed 0, for 5,000 steps with the same batch and optimizer schedule, using validation only.
+   This run must reach at least 90% validation query accuracy at `N = 8` at step 5,000.
+   If it fails, report it before launching the pilot.
+
+### 12.3 Pilot arms and analysis
+
+Launch the pilot only after both gates pass, with fresh initialization and a full 20,000-step schedule, batch 64 and the remaining `configs/base.yaml` optimizer settings.
+Run two jobs at a time within resource headroom, with seeds `{0, 1}` in every arm, for 14 runs total.
+
+| Arm | GDN key head width | Architectures | Runs |
+|---|---:|---|---:|
+| A | 64 | `transformer`, `pure`, `hybrid_early`, `hybrid_middle`, `hybrid_late` | 10 |
+| B | 32 | `pure`, `hybrid_middle` | 4 |
+
+Evaluate each run on the fixed test set only after it reaches the final checkpoint.
+Keep one raw CSV row per query and report query accuracy per `N`, hybrid minus pure accuracy in percentage points by seed and matching head width, and accuracy by binding rank at `N = 128` and `N = 256`.
+Show seeds individually in all comparisons and use 16 equal-width binding-rank bins for the recency figures, with exact rank scores also tabulated.
+Placement ordering, the load curves, the recency profiles and the shift in pure-GDN degradation under Arm B are descriptive only.
+Report the degradation point as the first tested `N > 8` below 90% of the same seed's `N = 8` accuracy, or record that this point was not reached.
+
+### 12.4 Ordered decision rules
+
+1. **R1, failed run.** Test query accuracy below 90% at `N = 8` is a learnability failure.
+   Report each failure and exclude capacity interpretations involving that run.
+2. **R2, broken control.** Transformer test accuracy below 90% at `N = 128` in either seed indicates a task or budget issue.
+   Report it before interpreting capacity differences.
+   Passing this threshold in both seeds is the positive-control requirement used by R6.
+3. **R3, load too low.** If 64-dim pure at `N = 256` retains at least 90% of its `N = 8` accuracy in both seeds, use Arm B as the primary readout.
+   Continue to R4 and R5 in Arm B and report R3 alone if neither qualifying gap occurs.
+4. **R4, separation.** A hybrid beats pure by at least 10 percentage points at the same `N` (128 or 256) and matched GDN head width in both seeds.
+   If R3 routed the decision to Arm B, use only Arm B for this decision.
+   Propose a confirmatory experiment with at least five seed-paired runs per architecture, a Holm correction and a placement comparison, without launching it.
+5. **R5, inconclusive.** If R4 is unmet, a matched comparison reaches the 10-point threshold at exactly one of the two seeds.
+   If R3 routed the decision to Arm B, use only Arm B for this decision.
+   Propose more seeds.
+6. **R6, no rescue.** If pure degrades with load (R3 is unmet), the transformer passes R2, and no eligible hybrid reaches the 10-point threshold in either seed, conclude that one attention layer does not rescue capacity at this scale.
+
+Use unrounded accuracies at decision thresholds and require eligible runs in both seeds to classify a matched comparison as R4 or R5.
+If failures or missing evidence make the next decision rule ambiguous, report what can be established and ask before interpreting further.
+This is a two-seed descriptive pilot and has no significance tests.
+Stop after reporting, with any future ICL inference variant requiring separate approval.
