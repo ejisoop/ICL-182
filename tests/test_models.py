@@ -1,11 +1,13 @@
 import pytest
 import torch
+from src.data.mqar import VOCAB_SIZE as MQAR_VOCAB_SIZE
 from src.data.tokenizer import VOCAB_SIZE
 from src.models import ModelConfig, build_model
 from src.models.common import CausalSelfAttention, GDNMixer
 
 cuda = pytest.mark.skipif(not torch.cuda.is_available(), reason="fla kernels need CUDA")
 ARCHS = ["pure", "hybrid_early", "hybrid_middle", "hybrid_late"]
+TRANSFORMER_DEVICES = ["cpu", pytest.param("cuda", marks=cuda)]
 
 
 def cfg():
@@ -35,6 +37,14 @@ def test_hybrid_exactly_one_attention_at_placement(arch, idx):
     assert len(m.blocks) == 8
 
 
+def test_transformer_has_eight_attention_mixers():
+    model = build_model("transformer", cfg())
+    assert count_attn(model) == (8, 0)
+    assert model.attention_layer_indices() == list(range(8))
+    assert model.cfg.layer_types() == ["attn"] * 8
+    assert not any(isinstance(layer, GDNMixer) for layer in model.modules())
+
+
 @cuda
 def test_param_counts_close():
     n = {a: build_model(a, cfg()).num_params() for a in ARCHS}
@@ -51,6 +61,40 @@ def test_attention_layer_is_causal_cpu():
     y2 = att(x2)
     assert torch.allclose(y[:, :12], y2[:, :12], atol=1e-5)
     assert not torch.allclose(y[:, 12:], y2[:, 12:], atol=1e-3)
+
+
+@torch.no_grad()
+@pytest.mark.parametrize("device", TRANSFORMER_DEVICES)
+def test_transformer_causality_and_padding_invariance(device):
+    torch.manual_seed(0)
+    model = build_model("transformer", cfg()).to(device).eval()
+    ids = torch.randint(3, VOCAB_SIZE, (2, 24), device=device)
+    logits = model(ids)
+    assert logits.shape == (2, 24, VOCAB_SIZE)
+    assert torch.isfinite(logits).all()
+    changed = ids.clone()
+    changed[:, 12:] = torch.randint(3, VOCAB_SIZE, (2, 12), device=device)
+    padded = torch.nn.functional.pad(ids, (0, 24))
+    torch.testing.assert_close(logits[:, :12], model(changed)[:, :12], atol=1e-5, rtol=1e-5)
+    torch.testing.assert_close(logits, model(padded)[:, :24], atol=1e-5, rtol=1e-5)
+
+
+@cuda
+@pytest.mark.parametrize("arch,params", [("pure", 6_766_400), ("hybrid_middle", 6_762_232)])
+def test_mqar_reduced_gdn_key_width_and_backward(arch, params):
+    model = build_model(arch, ModelConfig(vocab_size=MQAR_VOCAB_SIZE, gdn_head_dim=32)).cuda()
+    assert model.cfg.d_model == 256 and model.num_params() == params
+    for block in model.blocks:
+        if isinstance(block.mixer, GDNMixer):
+            assert block.mixer.inner.head_k_dim == 32
+            assert block.mixer.inner.head_v_dim == 64
+        else:
+            assert block.mixer.dh == 64
+    ids = torch.randint(3, MQAR_VOCAB_SIZE, (1, 80), device="cuda")
+    with torch.autocast("cuda", dtype=torch.bfloat16):
+        logits = model(ids)
+    logits.float().square().mean().backward()
+    assert torch.isfinite(model.blocks[0].mixer.inner.q_proj.weight.grad).all()
 
 
 @cuda

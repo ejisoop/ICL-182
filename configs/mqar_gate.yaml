@@ -1,0 +1,4 @@
+inherit: mqar.yaml
+train:
+  steps: 5000
+  mqar_abort_at_chance_step: 2000

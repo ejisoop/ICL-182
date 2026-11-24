@@ -34,6 +34,13 @@ class ModelConfig:
     rope_theta: float = 10000.0
     init_std: float = 0.02
     norm_eps: float = 1e-5
+    gdn_head_dim: int | None = None  # defaults to legacy head_dim (64)
+
+    def __post_init__(self):
+        if self.gdn_head_dim is None:
+            self.gdn_head_dim = self.head_dim
+        if self.gdn_head_dim <= 0:
+            raise ValueError("gdn_head_dim must be positive")
 
     def layer_types(self) -> List[str]:
         return ["attn" if i in self.attn_layers else "gdn" for i in range(self.n_layers)]
@@ -120,8 +127,10 @@ class GDNMixer(nn.Module):
     def __init__(self, cfg: ModelConfig, layer_idx: int):
         super().__init__()
         from fla.layers import GatedDeltaNet
-        self.inner = GatedDeltaNet(hidden_size=cfg.d_model, expand_v=cfg.gdn_expand_v,
-                                   head_dim=cfg.head_dim, num_heads=cfg.n_heads,
+        # FLA expresses value width relative to key width. Hold value width fixed.
+        expand_v = cfg.gdn_expand_v * (cfg.head_dim / cfg.gdn_head_dim)
+        self.inner = GatedDeltaNet(hidden_size=cfg.d_model, expand_v=expand_v,
+                                   head_dim=cfg.gdn_head_dim, num_heads=cfg.n_heads,
                                    mode="chunk", use_gate=True, use_short_conv=True,
                                    conv_size=cfg.gdn_conv_size, layer_idx=layer_idx,
                                    norm_eps=cfg.norm_eps)

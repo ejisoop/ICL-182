@@ -19,9 +19,11 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
-from src.data.dataset import TokenListDataset, TrainStream, collate_lm, load_val
+from src.data import mqar, recall
+from src.data.dataset import TrainStream, collate_lm, load_val
 from src.data.generator import TrainSampleConfig
 from src.data.tokenizer import VOCAB_SIZE, encode
+from src.evaluation.mqar import score_queries
 from src.models import ModelConfig, build_model
 from src.training.checkpoint import load_checkpoint, save_checkpoint
 from src.utils.logging import JsonlLogger, load_config
@@ -36,10 +38,9 @@ def is_recall(cfg: dict) -> bool:
 
 
 def model_config_from(cfg: dict) -> ModelConfig:
-    if is_recall(cfg):
-        from src.data import recall
-        return ModelConfig(vocab_size=recall.VOCAB_SIZE, **cfg["model"])
-    return ModelConfig(vocab_size=VOCAB_SIZE, **cfg["model"])
+    task = cfg["data"].get("task", "program")
+    vocab_sizes = {"program": VOCAB_SIZE, "recall": recall.VOCAB_SIZE, "mqar": mqar.VOCAB_SIZE}
+    return ModelConfig(vocab_size=vocab_sizes[task], **cfg["model"])
 
 
 def lr_at(step: int, tc: dict) -> float:
@@ -89,6 +90,22 @@ def evaluate_val(model, val_rows, device, amp_dtype, batch_size=256) -> dict:
     return out
 
 
+def evaluate_mqar_val(model, rows, device, amp_dtype, batch_size) -> dict:
+    model.eval()
+    by_n = {}
+    for row, query, prediction, loss in score_queries(model, rows, device, amp_dtype, batch_size):
+        acc = by_n.setdefault(row["n"], [0.0, 0, 0])
+        acc[0] += loss
+        acc[1] += mqar.VALUES[prediction] == row["answers"][query]
+        acc[2] += 1
+    model.train()
+    metrics = {}
+    for n, (loss, correct, total) in by_n.items():
+        metrics[f"val_loss_n{n}"] = loss / total
+        metrics[f"val_acc_n{n}"] = correct / total
+    return metrics
+
+
 def train(config_path: str, arch: str, seed: int, out_dir: str, overrides: dict | None = None,
           device: str = "cuda", data_seed: int | None = None,
           early_init_seed: int | None = None) -> dict:
@@ -98,8 +115,19 @@ def train(config_path: str, arch: str, seed: int, out_dir: str, overrides: dict 
     data_seed = seed if data_seed is None else data_seed
     cfg["arch"], cfg["seed"], cfg["data_seed"] = arch, seed, data_seed
     tc, dc = cfg["train"], cfg["data"]
+    is_mqar = dc.get("task") == "mqar"
+    abort_step = tc.get("mqar_abort_at_chance_step")
+    if abort_step is not None and (not is_mqar or not 0 < abort_step <= tc["steps"]):
+        raise ValueError("the chance-loss abort step must be within an MQAR run")
+    if abort_step is not None and abort_step % tc["log_interval"]:
+        raise ValueError("the chance-loss abort step must coincide with a logging step")
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
+    if abort_step is not None and (out / "metadata.json").exists():
+        previous = json.loads((out / "metadata.json").read_text())
+        if "aborted_step" in previous:
+            print(f"[skip] {out} was stopped by the chance-loss gate", flush=True)
+            return previous
     dev = torch.device(device if torch.cuda.is_available() else "cpu")
     amp_dtype = getattr(torch, tc["amp_dtype"])
 
@@ -135,13 +163,18 @@ def train(config_path: str, arch: str, seed: int, out_dir: str, overrides: dict 
     meta = {"arch": arch, "seed": seed, "data_seed": data_seed, "n_params": n_params,
             "param_breakdown": model.param_breakdown(),
             "attention_layers": model.attention_layer_indices(),
-            "layer_types": mcfg.layer_types(), "config": cfg, "env": environment_info()}
+            "layer_types": model.cfg.layer_types(), "config": cfg, "env": environment_info()}
     json.dump(meta, open(out / "metadata.json", "w"), indent=2)
 
     val_rows = load_val(dc["val_file"])
     remaining = tc["steps"] - start_step
-    if is_recall(cfg):   # load-scaling task (IMPLEMENTATION_PLAN section 11)
-        from src.data import recall
+    if is_mqar:
+        for row in val_rows:
+            row["ids"] = mqar.encode(row["text"])
+        stream = mqar.MQARStream(data_seed, mqar.MQARConfig(dc["n_choices"], dc["n_query"]),
+                                 start_index=start_step * tc["batch_size"],
+                                 length=remaining * tc["batch_size"])
+    elif is_recall(cfg):   # load-scaling task (IMPLEMENTATION_PLAN section 11)
         for r in val_rows:
             r["ids"] = recall.encode(r["text"])
         rcfg = recall.RecallConfig(n_choices=tuple(dc["n_choices"]), n_query=dc["n_query"],
@@ -181,23 +214,41 @@ def train(config_path: str, arch: str, seed: int, out_dir: str, overrides: dict 
         loss.backward()
         gnorm = torch.nn.utils.clip_grad_norm_(model.parameters(), tc["grad_clip"])
         opt.step()
-        with torch.no_grad():
-            ar = torch.arange(inp.shape[0], device=dev)
-            ans_loss = F.cross_entropy(logits[ar, batch["answer_pos"].to(dev)],
-                                       batch["answer"].to(dev))
+        ans_loss = loss.detach()  # MQAR supervises only query answers, including non-final queries.
+        if not is_mqar:
+            with torch.no_grad():
+                ar = torch.arange(inp.shape[0], device=dev)
+                ans_loss = F.cross_entropy(logits[ar, batch["answer_pos"].to(dev)],
+                                           batch["answer"].to(dev))
         run_loss += loss.item(); run_ans += ans_loss.item(); n_run += 1
         step += 1
+        abort = False
         if step % tc["log_interval"] == 0 or step == tc["steps"]:
             el = elapsed_prev + time.time() - t0
-            log.log({"step": step, "train_loss": run_loss / n_run, "train_answer_loss": run_ans / n_run,
+            mean_answer_loss = run_ans / n_run
+            abort = step == abort_step and abs(mean_answer_loss - math.log(len(mqar.VALUES))) <= 0.05
+            log.log({"step": step, "train_loss": run_loss / n_run, "train_answer_loss": mean_answer_loss,
                      "lr": lr, "grad_norm": gnorm.item(), "elapsed_s": el})
             run_loss = run_ans = 0.0; n_run = 0
         if step % tc["eval_interval"] == 0 or step == tc["steps"]:
-            v = evaluate_val(model, val_rows, dev, amp_dtype)
+            if is_mqar:
+                v = evaluate_mqar_val(model, val_rows, dev, amp_dtype, cfg["eval"]["batch_size"])
+            else:
+                v = evaluate_val(model, val_rows, dev, amp_dtype)
             v.update({"step": step, "elapsed_s": elapsed_prev + time.time() - t0})
             log.log(v)
             print(f"[{arch} s{seed}] step {step} " + " ".join(
                 f"{k}={x:.4f}" for k, x in v.items() if k.startswith("val_")), flush=True)
+        if abort:
+            meta.update(aborted_step=step, train_answer_loss=mean_answer_loss,
+                        abort_reason="train answer loss within 0.05 of ln(64)")
+            pending_meta = out / "metadata.json.tmp"
+            pending_meta.write_text(json.dumps(meta, indent=2))
+            pending_meta.replace(out / "metadata.json")
+            save_checkpoint(out / "latest.pt", model, opt, step,
+                            {"elapsed": elapsed_prev + time.time() - t0})
+            print(f"[gate] stopped at step {step}: answer loss {mean_answer_loss:.4f}", flush=True)
+            return meta
         if step % tc["ckpt_interval"] == 0 or step == tc["steps"]:
             save_checkpoint(out / "latest.pt", model, opt, step,
                             {"elapsed": elapsed_prev + time.time() - t0})

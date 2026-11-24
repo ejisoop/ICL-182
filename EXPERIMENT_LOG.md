@@ -214,3 +214,25 @@ Chronological log of what was actually done. All times are server local (2026-11
   Moved the two local run directories to `checkpoints/_aborted/recall_mod13_20261123/`.
   The `iconlab` host was not reachable by its recorded hostname from the local machine, so its job state and archive copy are pending access.
   Experiment 1 and 2 artifacts were preserved.
+
+## Phase 9 - MQAR implementation and verification (2026-11-23 18:44 PST)
+
+- Added direct key-value retrieval with 512 keys, 64 independently sampled values and query-only supervision.
+  The user chose four distinct queries at `N = 4` and eight at each higher load.
+  Fixed split files and hashes are recorded in `data/mqar/data_manifest.json`.
+  The mod-13 generator, configs and fixed data remain reproducible.
+- Added the eight-attention-layer transformer and the 32-dim GDN query/key option with the 64-dim value heads and `d_model = 256` held fixed.
+  Actual parameter counts with the MQAR vocabulary are below.
+
+| Architecture | GDN key dim 64 | GDN key dim 32 | Change at 32 |
+|---|---:|---:|---:|
+| Transformer | 6,733,056 | | |
+| Pure GDN | 7,298,880 | 6,766,400 | -532,480 |
+| Early hybrid | 7,228,152 | | |
+| Middle hybrid | 7,228,152 | 6,762,232 | -465,920 |
+| Late hybrid | 7,228,152 | | |
+
+- The full suite passed on the Mac CPU (61 passed, 14 CUDA skips) and with CUDA enabled on an authorized Thunder Compute L40 (76 passed).
+  CUDA used the pinned Torch 2.7.1+cu126, Triton 3.3.1 and FLA 0.6.0 versions from the earlier runs.
+  The Thunder CLI required an update from 2.0.71 to 2.3.0 before provisioning.
+  No experiment training was launched before verification.

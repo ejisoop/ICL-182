@@ -192,10 +192,21 @@ def main():
     ap.add_argument("--mem-max", default="4G", help="systemd scope MemoryMax per job (~1.5x measured peak)")
     ap.add_argument("--tasks-max", type=int, default=128, help="systemd scope TasksMax per job")
     ap.add_argument("--max-attempts", type=int, default=3)
+    ap.add_argument("--require-resource-guards", action="store_true",
+                    help="require an executable headroom check and working resource scopes")
+    ap.add_argument("--measure", action="store_true",
+                    help="measure training resources with /usr/bin/time -v per job")
     a = ap.parse_args()
     assert a.max_gpus <= MAX_USER_GPUS
     jobs = build_jobs(a)
     print(f"[sched] {len(jobs)} jobs pending: {[(j['group'], j['arch'], j['seed']) for j in jobs]}", flush=True)
+    if not jobs:
+        return
+    cap = scope_prefix(a.mem_max, a.tasks_max)
+    if a.require_resource_guards and (not os.access(HEADROOM, os.X_OK) or not cap):
+        ap.error("a working headroom command and systemd user scope are required")
+    if a.measure and not os.access("/usr/bin/time", os.X_OK):
+        ap.error("--measure requires /usr/bin/time")
     running: dict[int, tuple] = {}  # pid -> (popen, gpu, job)
     attempts: dict[str, int] = {}
     while jobs or running:
@@ -242,19 +253,19 @@ def main():
                 if j.get("data_seed") is not None:
                     steps += f" --data-seed {j['data_seed']}"
                 steps += " " + j.get("extra", "")
-                cap = scope_prefix(a.mem_max, a.tasks_max)
-                cmd = (f"{cap} {PY} -m src.training.train --config {j['config']} --arch {j['arch']} "
+                log_dir = ROOT / "logs" / j["group"]
+                log_dir.mkdir(parents=True, exist_ok=True)
+                measure = f"/usr/bin/time -v -o {log_dir / (run.name + '_time.txt')} " if a.measure else ""
+                cmd = (f"{cap} {measure}{PY} -m src.training.train --config {j['config']} --arch {j['arch']} "
                        f"--seed {j['seed']} {steps} --out {run}")
                 if j.get("eval", True):
                     task = load_config(j["config"])["data"].get("task", "program")
-                    ev = "evaluate_recall.py" if task == "recall" else "evaluate_models.py"
+                    ev = {"recall": "evaluate_recall.py", "mqar": "evaluate_mqar.py"}.get(task, "evaluate_models.py")
                     cmd += f" && {cap} {PY} scripts/{ev} --run {run} --raw-dir {j['raw_dir']}"
                 attempts[str(run)] = attempts.get(str(run), 0) + 1
                 env = dict(os.environ, CUDA_VISIBLE_DEVICES=str(gpu), PYTHONUNBUFFERED="1",
                            OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1", MKL_NUM_THREADS="1",
                            TORCHINDUCTOR_COMPILE_THREADS="1")
-                log_dir = ROOT / "logs" / j["group"]
-                log_dir.mkdir(parents=True, exist_ok=True)
                 logf = open(log_dir / f"{run.name}.log", "a")
                 p = subprocess.Popen(cmd, shell=True, cwd=ROOT, env=env, stdout=logf,
                                      stderr=subprocess.STDOUT, start_new_session=True)

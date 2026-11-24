@@ -1,0 +1,5 @@
+inherit: mqar.yaml
+model:
+  gdn_head_dim: 32
+experiment:
+  archs: [pure, hybrid_middle]
