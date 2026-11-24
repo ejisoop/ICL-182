@@ -199,3 +199,18 @@ Chronological log of what was actually done. All times are server local (2026-11
     - load shedding: if headroom fails while jobs run, stop the newest job (it resumes from its checkpoint) and re-queue it at most 3 times.
   - Pilot concurrency: 2 jobs (one per GPU), ~1.6 CPUs, because the other project was using ~3.7 of the 6 CPUs at launch time.
 - The aborted 11-21 pilot directories (no checkpoints, no evaluations) were moved to `checkpoints/_aborted/recall_killed_20261121`.
+
+### 2026-11-23 18:29 PST - Mod-13 pilot failed the learnability check
+
+- `pure_s0` and `hybrid_early_s0` stayed near `ln(13) = 2.5649` in training answer loss from about step 1,000 through the last logged step, 12,400.
+  At step 12,400, both answer losses rounded to 2.5649 and the gradient norms were 0.136 and 0.142, respectively.
+  Across the 12 logged validation evaluations, ICL accuracy averaged 6.61% for both runs and definition accuracy averaged 7.22% for pure and 7.11% for early, near the 7.69% chance rate.
+- Both runs are classified as failed under §11 rule 1.
+  The chance-level validation traces and flat training loss are the basis for the abort, without a terminal test-set score.
+  With independent uniform `x` and `c`, `a = (x + c) mod 13` is independent of either operand by itself.
+  Retrieval alone and arithmetic without retrieval each have zero expected loss advantage, even when the binding is explicitly defined.
+  This modular sparse-parity structure offers no reward for learning either subskill in isolation, so the runs give no capacity readout.
+- No recall job was running on the local machine.
+  Moved the two local run directories to `checkpoints/_aborted/recall_mod13_20261123/`.
+  The `iconlab` host was not reachable by its recorded hostname from the local machine, so its job state and archive copy are pending access.
+  Experiment 1 and 2 artifacts were preserved.
