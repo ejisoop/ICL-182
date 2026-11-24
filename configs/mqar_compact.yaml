@@ -1,0 +1,14 @@
+inherit: mqar.yaml
+model:
+  d_model: 128
+  n_layers: 4
+  head_dim: 32
+  gdn_head_dim: 32
+train:
+  steps: 1500
+  warmup_steps: 300
+  eval_interval: 500
+  ckpt_interval: 500
+experiment:
+  seeds: [0]
+  archs: [transformer, pure, hybrid_middle]

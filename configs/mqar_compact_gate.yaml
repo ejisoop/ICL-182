@@ -1,0 +1,3 @@
+inherit: mqar_compact.yaml
+train:
+  mqar_abort_at_chance_step: 1000

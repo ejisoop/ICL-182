@@ -275,3 +275,40 @@ Use unrounded accuracies at decision thresholds and require eligible runs in bot
 If failures or missing evidence make the next decision rule ambiguous, report what can be established and ask before interpreting further.
 This is a two-seed descriptive pilot and has no significance tests.
 Stop after reporting, with any future ICL inference variant requiring separate approval.
+
+## 13. Compact MQAR validation study (pre-registered 2026-11-23 PST)
+
+The user stopped the original §12 gate after sizing showed that the full pilot would take roughly 15–20 hours on one L40.
+This study replaces that execution plan with a smaller, validation-only comparison in a 30-minute window ending at 19:23 PST.
+The §12 pilot and its test-set rules remain unexecuted.
+
+### 13.1 Design
+
+- Use the same MQAR generator, fixed validation set, 64 legal answer values and all seven binding loads in §12.
+  The test file remains off the training host.
+- Use four layers, width 128 and four heads of width 32 for every mixer.
+  Compare the transformer with four causal attention layers, pure GDN with four recurrent mixers, and the middle hybrid with one attention mixer at zero-based layer 2.
+  Use seed 0 for both initialization and the data stream in each model.
+- Start with a single `hybrid_middle` sizing run (seed 99, 400 steps) using GNU `/usr/bin/time -v`.
+  Measure steady-state step time, CPU utilization, peak RSS, peak observed threads and GPU memory.
+  Use the single Thunder L40, zero loader workers, one BLAS/OMP/Inductor thread, mandatory headroom checks, the 4 GiB and 128-task scope limits and the scheduler's `--max-jobs 2`.
+  Run the three study jobs serially to evaluate the gates before proceeding.
+- Train each study model for 1,500 steps at batch 64 with the base AdamW settings, a 300-step warmup and cosine decay to 10% of the base LR.
+  Log every 50 steps and validate and checkpoint every 500.
+
+### 13.2 Ordered gates and readout
+
+1. Start the transformer after the sizing job completes within the resource caps.
+   Stop it after step 1,000 if the mean training answer loss over steps 951–1,000 is within 0.05 of `ln(64)`.
+   The transformer must reach at least 90% validation query accuracy at `N = 16` at step 1,500.
+   If either gate fails, report the failure and stop the study.
+2. If the transformer passes, run pure GDN.
+   Pure must reach at least 90% validation query accuracy at `N = 8` at step 1,500.
+   If it fails, report the failure and stop before the hybrid comparison.
+3. If pure passes, run the middle hybrid and report final validation accuracy by load for all three models.
+   If the hybrid is below 90% at `N = 8`, report a hybrid learnability failure and withhold capacity interpretations for it.
+   Show the pure-versus-hybrid gap at `N = 128` and 256 and give the transformer accuracies alongside it.
+   A load supports a preliminary capacity comparison only if the transformer reaches at least 90% at that load.
+   Treat all differences as descriptive single-seed validation results.
+4. Stop at the wall-clock limit if the sequence is incomplete and report the last completed measurements.
+   No fixed test evaluation, extra seed, reduced-width arm, additional placement or inference variant is part of this study.
