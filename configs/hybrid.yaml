@@ -1,0 +1,4 @@
+inherit: base.yaml
+# Hybrid: mixer of block `round(frac * n_layers)` replaced by causal softmax attention.
+# One of: hybrid_early (layer 2), hybrid_middle (layer 4), hybrid_late (layer 6)
+arch: hybrid_middle

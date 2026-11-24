@@ -1,0 +1,27 @@
+# --- environment / tooling ---
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+.DS_Store
+
+# --- large, regenerable artifacts ---
+# model weights (6+ GB); runs are reproducible from configs + seeds (see README)
+*.pt
+*.pt.tmp
+# pre-generated training streams (scripts/pregenerate_train.py), ~3.7 GB
+data/train_cache/
+
+# --- runtime logs (contain machine paths; the curated record is EXPERIMENT_LOG.md) ---
+logs/
+
+# --- derived exports of the report ---
+reports/notion_export/
+reports/notion_export.zip
+
+# Kept on purpose (small, needed to verify every number):
+#   checkpoints/**/metadata.json, checkpoints/**/train_log.jsonl  (configs, env, training curves)
+#   data/**/*.jsonl + data_manifest.json                          (fixed val/test sets, sha256 hashes)
+#   results/raw*/ *.csv                                            (one row per evaluated prompt)
+#   results/**/tables, figures, stats*.json

@@ -1,0 +1,8 @@
+# Experiment 2 (pre-registered in IMPLEMENTATION_PLAN.md §9): identical to base.yaml except that
+# every demonstration is consistent with exactly two operations (true + uniform confuser),
+# so the meaning must be inferred by combining demonstrations.
+inherit: base.yaml
+data:
+  ambiguous_demos: true
+  val_file: data/amb/val.jsonl
+  test_file: data/amb/test_cases.jsonl

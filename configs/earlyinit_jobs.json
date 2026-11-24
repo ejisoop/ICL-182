@@ -1,0 +1,60 @@
+[
+ {
+  "config": "configs/base.yaml",
+  "group": "earlyinit",
+  "arch": "pure",
+  "seed": 10,
+  "data_seed": 1,
+  "eval": false,
+  "name": "pure_b10_e11_d1",
+  "extra": "--early-init-seed 11"
+ },
+ {
+  "config": "configs/base.yaml",
+  "group": "earlyinit",
+  "arch": "pure",
+  "seed": 12,
+  "data_seed": 1,
+  "eval": false,
+  "name": "pure_b12_e11_d1",
+  "extra": "--early-init-seed 11"
+ },
+ {
+  "config": "configs/base.yaml",
+  "group": "earlyinit",
+  "arch": "pure",
+  "seed": 11,
+  "data_seed": 1,
+  "eval": false,
+  "name": "pure_b11_e10_d1",
+  "extra": "--early-init-seed 10"
+ },
+ {
+  "config": "configs/base.yaml",
+  "group": "earlyinit",
+  "arch": "pure",
+  "seed": 11,
+  "data_seed": 1,
+  "eval": false,
+  "name": "pure_b11_e12_d1",
+  "extra": "--early-init-seed 12"
+ },
+ {
+  "config": "configs/base.yaml",
+  "group": "earlyinit",
+  "arch": "pure",
+  "seed": 11,
+  "data_seed": 1,
+  "eval": false,
+  "name": "pure_b11_e11_d1_rerun"
+ },
+ {
+  "config": "configs/base.yaml",
+  "group": "earlyinit",
+  "arch": "pure",
+  "seed": 10,
+  "data_seed": 1,
+  "eval": false,
+  "name": "pure_b10_e10_d1_rerun"
+ }
+]

@@ -1,0 +1,45 @@
+# Central configuration shared by every architecture.  Architecture-specific
+# files (pure_deltanet.yaml, hybrid.yaml) only set `arch`/placements.
+model:
+  d_model: 256
+  n_layers: 8
+  n_heads: 4
+  head_dim: 64
+  mlp_ratio: 4.0
+  gdn_expand_v: 1.0
+  gdn_conv_size: 4
+  rope_theta: 10000.0
+  init_std: 0.02
+
+data:
+  n_init: 2             # query program: variable initialisations (fixed by calibration round 2, see EXPERIMENT_LOG)
+  n_stmts: 3            # query program: update statements, exactly one uses the target command
+  k_min: 0               # demonstrations per command in training prompts ~ U{k_min..k_max}
+  k_max: 8
+  p_definition: 0.25     # fraction of direct-definition (control-format) training prompts
+  val_file: data/val.jsonl
+  test_file: data/test_cases.jsonl
+  num_workers: 4
+  cache_dir: data/train_cache   # optional pre-generated stream (scripts/pregenerate_train.py)
+
+train:
+  steps: 20000
+  batch_size: 128
+  lr: 1.0e-3
+  min_lr_ratio: 0.1
+  warmup_steps: 1000
+  weight_decay: 0.1
+  betas: [0.9, 0.95]
+  grad_clip: 1.0
+  amp_dtype: bfloat16
+  log_interval: 50
+  eval_interval: 1000
+  ckpt_interval: 2000
+
+eval:
+  demo_counts: [0, 1, 2, 3, 4, 6, 8]
+  batch_size: 256
+
+experiment:
+  seeds: [0, 1, 2, 3, 4]
+  archs: [pure, hybrid_early, hybrid_middle, hybrid_late]

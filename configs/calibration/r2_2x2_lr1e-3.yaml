@@ -1,0 +1,10 @@
+inherit: ../base.yaml
+# Calibration round 2 (pure only, seed 100, 20k steps): task 2x2, lr 1e-3
+data:
+  n_init: 2
+  n_stmts: 2
+  val_file: data/calib_2x2/val.jsonl
+  test_file: data/calib_2x2/test_cases.jsonl
+  cache_dir: null
+train:
+  lr: 1.0e-3

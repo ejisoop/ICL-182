@@ -1,0 +1,19 @@
+{
+  "val_seed": 777777,
+  "test_seed": 20241118,
+  "n_val": 3000,
+  "n_test_cases": 1000,
+  "data_config": {
+    "n_init": 2,
+    "n_stmts": 3,
+    "k_min": 0,
+    "k_max": 8,
+    "p_definition": 0.25,
+    "val_file": "data/val.jsonl",
+    "test_file": "data/test_cases.jsonl",
+    "num_workers": 4,
+    "cache_dir": "data/train_cache"
+  },
+  "sha256_val.jsonl": "449e6ebfd40e1c9e7103688aa26fa4feeb57ccd3351436b7e9256ebaaa3f8e78",
+  "sha256_test_cases.jsonl": "7f61fd65433f1e2a282fe57909a6d926d1ff967eef47fc388cf614b28b54a4aa"
+}

@@ -1,0 +1,20 @@
+{
+  "val_seed": 777777,
+  "test_seed": 20241118,
+  "n_val": 3000,
+  "n_test_cases": 1000,
+  "data_config": {
+    "n_init": 2,
+    "n_stmts": 3,
+    "k_min": 0,
+    "k_max": 8,
+    "p_definition": 0.25,
+    "val_file": "data/amb/val.jsonl",
+    "test_file": "data/amb/test_cases.jsonl",
+    "num_workers": 4,
+    "cache_dir": "data/train_cache",
+    "ambiguous_demos": true
+  },
+  "sha256_val.jsonl": "9fc49b614c2739452198c2bb454f321a865dd4c130aaaa974df3992d907e4701",
+  "sha256_test_cases.jsonl": "60253b96823ea1708ede6f26682a5d238769d1c17087452eeef0e3916a5aafbb"
+}

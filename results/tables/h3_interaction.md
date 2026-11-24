@@ -1,0 +1,5 @@
+| hybrid | adv. ICL (pp) | adv. definition (pp) | interaction (pp) | 95% CI (pp) | Welch p | Holm p | perm. p |
+|---|---|---|---|---|---|---|---|
+| hybrid_early | +3.5 | +3.7 | -0.2 | [-1.0, +0.7] | 0.632 | 1 | 0.627 |
+| hybrid_middle | -0.6 | -0.9 | +0.3 | [-0.6, +1.1] | 0.463 | 1 | 0.444 |
+| hybrid_late | -1.7 | -2.1 | +0.4 | [-0.6, +1.3] | 0.369 | 1 | 0.389 |

@@ -1,0 +1,34 @@
+[
+ {
+  "config": "configs/calibration/r2_2x2_lr1e-3.yaml",
+  "group": "r2_2x2_lr1e-3",
+  "arch": "pure",
+  "seed": 100,
+  "steps": 20000,
+  "eval": false
+ },
+ {
+  "config": "configs/calibration/r2_2x2_lr2e-3.yaml",
+  "group": "r2_2x2_lr2e-3",
+  "arch": "pure",
+  "seed": 100,
+  "steps": 20000,
+  "eval": false
+ },
+ {
+  "config": "configs/calibration/r2_2x3_lr1e-3.yaml",
+  "group": "r2_2x3_lr1e-3",
+  "arch": "pure",
+  "seed": 100,
+  "steps": 20000,
+  "eval": false
+ },
+ {
+  "config": "configs/calibration/r2_2x3_lr2e-3.yaml",
+  "group": "r2_2x3_lr2e-3",
+  "arch": "pure",
+  "seed": 100,
+  "steps": 20000,
+  "eval": false
+ }
+]

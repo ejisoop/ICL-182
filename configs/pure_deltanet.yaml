@@ -1,0 +1,2 @@
+inherit: base.yaml
+arch: pure            # 8 Gated DeltaNet blocks, no softmax attention

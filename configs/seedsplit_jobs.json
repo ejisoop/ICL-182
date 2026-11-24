@@ -1,0 +1,50 @@
+[
+ {
+  "config": "configs/base.yaml",
+  "group": "seedsplit",
+  "arch": "pure",
+  "seed": 10,
+  "data_seed": 0,
+  "eval": false
+ },
+ {
+  "config": "configs/base.yaml",
+  "group": "seedsplit",
+  "arch": "pure",
+  "seed": 11,
+  "data_seed": 0,
+  "eval": false
+ },
+ {
+  "config": "configs/base.yaml",
+  "group": "seedsplit",
+  "arch": "pure",
+  "seed": 12,
+  "data_seed": 0,
+  "eval": false
+ },
+ {
+  "config": "configs/base.yaml",
+  "group": "seedsplit",
+  "arch": "pure",
+  "seed": 10,
+  "data_seed": 1,
+  "eval": false
+ },
+ {
+  "config": "configs/base.yaml",
+  "group": "seedsplit",
+  "arch": "pure",
+  "seed": 11,
+  "data_seed": 1,
+  "eval": false
+ },
+ {
+  "config": "configs/base.yaml",
+  "group": "seedsplit",
+  "arch": "pure",
+  "seed": 12,
+  "data_seed": 1,
+  "eval": false
+ }
+]

@@ -1,0 +1,7 @@
+inherit: ../base.yaml
+# Pilot/calibration only (seed 100): query programs with 2 initialisations and 2 updates.
+data:
+  n_init: 2
+  n_stmts: 2
+  val_file: data/calib_2x2/val.jsonl
+  test_file: data/calib_2x2/test_cases.jsonl

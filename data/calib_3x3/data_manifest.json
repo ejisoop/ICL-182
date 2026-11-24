@@ -1,0 +1,18 @@
+{
+  "val_seed": 777777,
+  "test_seed": 20241118,
+  "n_val": 2000,
+  "n_test_cases": 300,
+  "data_config": {
+    "n_init": 3,
+    "n_stmts": 3,
+    "k_min": 0,
+    "k_max": 8,
+    "p_definition": 0.25,
+    "val_file": "data/calib_3x3/val.jsonl",
+    "test_file": "data/calib_3x3/test_cases.jsonl",
+    "num_workers": 6
+  },
+  "sha256_val.jsonl": "29e23845732d459db52e738dfc10126e801d4d751bfc62a71dd0778de66c9744",
+  "sha256_test_cases.jsonl": "ca5772b43460b12254037fceb01a51effe3556c307ece82d1ac4a928efe7ecea"
+}

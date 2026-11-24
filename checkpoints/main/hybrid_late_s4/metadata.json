@@ -1,0 +1,122 @@
+{
+  "arch": "hybrid_late",
+  "seed": 4,
+  "n_params": 6944504,
+  "param_breakdown": {
+    "embed": 11264,
+    "lm_head": 11264,
+    "norm_f": 256,
+    "block0_gdn_mixer": 332872,
+    "block0_mlp+norms": 541184,
+    "block1_gdn_mixer": 332872,
+    "block1_mlp+norms": 541184,
+    "block2_gdn_mixer": 332872,
+    "block2_mlp+norms": 541184,
+    "block3_gdn_mixer": 332872,
+    "block3_mlp+norms": 541184,
+    "block4_gdn_mixer": 332872,
+    "block4_mlp+norms": 541184,
+    "block5_gdn_mixer": 332872,
+    "block5_mlp+norms": 541184,
+    "block6_attn_mixer": 262144,
+    "block6_mlp+norms": 541184,
+    "block7_gdn_mixer": 332872,
+    "block7_mlp+norms": 541184
+  },
+  "attention_layers": [
+    6
+  ],
+  "layer_types": [
+    "gdn",
+    "gdn",
+    "gdn",
+    "gdn",
+    "gdn",
+    "gdn",
+    "gdn",
+    "gdn"
+  ],
+  "config": {
+    "model": {
+      "d_model": 256,
+      "n_layers": 8,
+      "n_heads": 4,
+      "head_dim": 64,
+      "mlp_ratio": 4.0,
+      "gdn_expand_v": 1.0,
+      "gdn_conv_size": 4,
+      "rope_theta": 10000.0,
+      "init_std": 0.02
+    },
+    "data": {
+      "n_init": 2,
+      "n_stmts": 3,
+      "k_min": 0,
+      "k_max": 8,
+      "p_definition": 0.25,
+      "val_file": "data/val.jsonl",
+      "test_file": "data/test_cases.jsonl",
+      "num_workers": 4,
+      "cache_dir": "data/train_cache"
+    },
+    "train": {
+      "steps": 20000,
+      "batch_size": 128,
+      "lr": 0.001,
+      "min_lr_ratio": 0.1,
+      "warmup_steps": 1000,
+      "weight_decay": 0.1,
+      "betas": [
+        0.9,
+        0.95
+      ],
+      "grad_clip": 1.0,
+      "amp_dtype": "bfloat16",
+      "log_interval": 50,
+      "eval_interval": 1000,
+      "ckpt_interval": 2000
+    },
+    "eval": {
+      "demo_counts": [
+        0,
+        1,
+        2,
+        3,
+        4,
+        6,
+        8
+      ],
+      "batch_size": 256
+    },
+    "experiment": {
+      "seeds": [
+        0,
+        1,
+        2,
+        3,
+        4
+      ],
+      "archs": [
+        "pure",
+        "hybrid_early",
+        "hybrid_middle",
+        "hybrid_late"
+      ]
+    },
+    "arch": "hybrid_late",
+    "seed": 4
+  },
+  "env": {
+    "python": "3.11.17",
+    "torch": "2.7.1+cu126",
+    "cuda": "12.6",
+    "hostname": "iconlab",
+    "cuda_visible_devices": "4",
+    "fla": "0.6.0",
+    "triton": "3.3.1",
+    "gpu": "NVIDIA L40S",
+    "gpu_mem_gb": 44.4
+  },
+  "final_step": 20000,
+  "train_seconds": 4364.399436712265
+}
