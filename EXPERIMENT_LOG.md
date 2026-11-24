@@ -254,3 +254,25 @@ Chronological log of what was actually done. All times are server local (2026-11
   No §12 gate or pilot decision was reached, and no original pilot arm was launched.
 - 18:53: The user chose a smaller validation-only comparison with an elapsed-time budget of 30 minutes.
   This supersedes the requested §12 training plan for this session.
+
+## Phase 11 - Compact MQAR validation study (2026-11-23 PST)
+
+- 18:54: Committed the compact design and decision rules in §13 (`9d47dc8`) before launching training.
+- 18:55: Started the compact study on the same L40 with a systemd deadline of 19:23:28 PST.
+  The fixed test file remained off the host.
+- 18:58: The 400-step compact sizing run finished with exit code 0.
+  GNU time measured 1,581,348 KiB peak RSS (1.51 GiB), 134% CPU and 151.04 seconds wall time including cold compilation, evaluation and checkpointing.
+  Steady-state training took about 0.058 seconds per step, with 49 peak sampled main-process threads and 4,185 MiB peak sampled GPU memory.
+  All runs used the same 4 GiB and 128-task scope limits and mandatory headroom checks.
+- 18:58–18:59: The compact transformer (1,006,208 parameters, seed 0) finished all 1,500 steps.
+  At step 1,000 its training answer loss was 3.2701, so the chance-loss abort did not fire.
+  Step-1,500 validation accuracy was 11.25% at `N = 16` versus the 90% requirement, and training answer loss was 3.1847.
+  The §13 transformer gate failed, and the controller stopped with its planned gate-failure exit code before running either seed-0 GDN arm.
+  Sizing plus the gate took 4 minutes 7 seconds on the host.
+- The compact hybrid sizing trace had 97.75% validation accuracy at `N = 16` after 400 steps with seed 99.
+  This is a pipeline sanity check from the sizing run.
+  It does not establish a capacity or architecture difference.
+- Verified the fixed validation file and the downloaded model weights, metadata and logs against their remote SHA-256 values.
+  The fixed test file was never transferred or evaluated.
+  `scripts/analyze_mqar.py` was checked against synthetic per-query CSVs for the full pilot and produced the compact curve from the actual validation logs.
+- 19:01: Deleted the dedicated L40 instance after verifying the local copies, with the user's approval.
