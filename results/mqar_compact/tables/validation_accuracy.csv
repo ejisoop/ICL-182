@@ -1,0 +1,8 @@
+arch,seed,step,completed,n_params,n,accuracy
+transformer,0,1500,True,1006208,4,0.285
+transformer,0,1500,True,1006208,8,0.17
+transformer,0,1500,True,1006208,16,0.1125
+transformer,0,1500,True,1006208,32,0.08125
+transformer,0,1500,True,1006208,64,0.06125
+transformer,0,1500,True,1006208,128,0.04375
+transformer,0,1500,True,1006208,256,0.0225

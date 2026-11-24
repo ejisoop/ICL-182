@@ -2,7 +2,8 @@
 
 **Final report.** This report covers the experiments specified in `RESEARCH_PROPOSAL.md`. The plan and the pre-registered analysis are in `IMPLEMENTATION_PLAN.md`. A chronological record, including every deviation, is in `EXPERIMENT_LOG.md`.
 
-Every number below is produced by `scripts/analyze_results.py` from the per-prompt predictions in `results/raw/*.csv`. Exceptions are labelled *exploratory*; their computation is described next to them.
+Experiment 1 statistics come from `scripts/analyze_results.py` and the per-prompt predictions in `results/raw/*.csv`.
+Later experiments and exploratory analyses identify their sources in the corresponding sections.
 
 ---
 
@@ -493,7 +494,8 @@ The results are therefore inconclusive about small effects, and they argue again
 | Exploratory data-vs-init follow-up (pure, 6 runs, validation only) | completed (§10) |
 | Exploratory experiment A: early-layer init transplant (pure, 6 runs, validation only) | completed (§10.1) |
 | Experiment 2 (pre-registered): ambiguous demonstrations, 4 architectures × 5 seeds, full evaluation and analysis | **completed (20/20)** (§11); 8 runs resumed from step 8000 after a freeze |
-| Load-scaling pilot (pre-registered, `IMPLEMENTATION_PLAN.md` §11): 4 architectures × 2 seeds, N = 4–128 bound commands | **running** (results to be added) |
+| Mod-13 load-scaling pilot (pre-registered, `IMPLEMENTATION_PLAN.md` §11), N = 4–128 bound commands | **failed the learnability check** (§16) |
+| Compact MQAR validation study (pre-registered, `IMPLEMENTATION_PLAN.md` §13) | **stopped at the transformer gate** (§16) |
 | Longer training to convergence; more seeds; distance task variants | **not done** (compute and time) |
 
 ## 15. Reproducibility
@@ -525,6 +527,78 @@ Every reported number is traceable as follows:
 - Experiment 2: `results/raw_amb/` → `results/amb/tables/`, `results/amb/stats.json`, `results/amb/stats_exp2.json` (`scripts/analyze_exp2.py`).
 
 Software: Python 3.11, torch 2.7.1+cu126, triton 3.3.1, flash-linear-attention 0.6.0.
+
+## 16. Associative recall under binding load
+
+Does a single attention layer help a small Gated DeltaNet retrieve values when a prompt contains many bindings?
+The follow-up tests recall directly with a transformer positive control and a smaller recurrent key state.
+
+### 16.1 Why the mod-13 pilot failed
+
+The first load-scaling task asked the model to retrieve a command's offset `c` and predict `(x + c) mod 13`.
+Both `pure_s0` and `hybrid_early_s0` stayed at approximately `ln(13) = 2.5649` training answer loss from about step 1,000 through step 12,400, where their gradient norms were 0.136 and 0.142.
+Validation averaged 6.61% with demonstrations in both runs and 7.11–7.22% with explicit definitions, near the 7.69% chance rate.
+
+With independent uniform operands, the answer is independent of either operand on its own.
+Learning to retrieve the offset alone or learning addition without the offset gives no expected loss reduction.
+This modular sparse-parity structure explains why providing the offset explicitly as a binding did not help the models get started.
+The two runs failed under §11 rule 1 and provide no evidence about state capacity.
+The archived traces contain train and validation metrics through step 12,400 and no terminal test score.
+
+### 16.2 Multi-query associative recall
+
+Each prompt binds `N` distinct keys sampled from 512 made-up commands to independent values from a 64-token vocabulary.
+It starts with `<bos>`, lists the bindings as `M k v ;`, and then asks distinct queries as `Q k -> v ;` in random order.
+The answer is the stored value.
+Training samples `N` uniformly from 4, 8, 16, 32, 64, 128 and 256.
+There are four queries at `N = 4` and eight otherwise, with cross-entropy supervision only on query answers.
+Accuracy is measured over individual queries, with chance at 1.5625%.
+The fixed validation and test sets have 100 and 250 prompts per load, respectively, and record the position of each queried binding.
+
+The established pure GDN and three one-attention-layer hybrids use eight layers of width 256.
+The positive control uses the same causal attention with RoPE in all eight mixers.
+The smaller state uses 32-dimensional GDN query/key heads, holding GDN value and attention head widths at 64.
+
+| Architecture | Parameters at GDN key width 64 | Parameters at GDN key width 32 |
+|---|---:|---:|
+| Transformer | 6,733,056 | |
+| Pure GDN | 7,298,880 | 6,766,400 |
+| Early hybrid | 7,228,152 | |
+| Middle hybrid | 7,228,152 | 6,762,232 |
+| Late hybrid | 7,228,152 | |
+
+The design and ordered decision rules were pre-registered in `IMPLEMENTATION_PLAN.md` §12.
+The 400-step sizing run measured 0.196 seconds per step on one L40, putting the original 14-run plan at roughly 15–20 hours.
+The user stopped the original transformer gate while its last logged step was 100, before any validation measurement.
+The original two-seed pilot and its R1–R6 decision rules were never reached.
+
+### 16.3 Compact validation study
+
+The replacement study (§13) used four layers at width 128 with four 32-dimensional heads per mixer.
+It compared a transformer, pure GDN and a hybrid with attention in layer 2 (zero-based).
+Each arm used seed 0, batch 64 and 1,500 steps, with a 300-step warmup and the base optimizer settings.
+The transformer gate required 90% validation accuracy at `N = 16` and the pure gate required 90% at `N = 8`.
+The study used the fixed validation set throughout.
+The fixed test set stayed off the training host.
+
+**The transformer gate failed.**
+The step-1,000 training answer loss was 3.270, outside the chance-loss abort interval around `ln(64) = 4.159`.
+At step 1,500, the transformer (1,006,208 parameters) reached 11.25% at `N = 16`, below the 90% requirement.
+The pure and middle-hybrid seed-0 runs were skipped under the pre-registered stopping rule.
+
+| N | 4 | 8 | 16 | 32 | 64 | 128 | 256 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Transformer validation accuracy (%) | 28.50 | 17.00 | 11.25 | 8.13 | 6.13 | 4.38 | 2.25 |
+
+![Compact transformer validation accuracy by number of bindings](../results/mqar_compact/figures/validation_accuracy.png)
+
+The compact middle hybrid reached 97.75% at `N = 16` in the 400-step sizing run with seed 99.
+That shows at least one model learned the low-load task in this pipeline.
+The sizing trace used a different seed, schedule and stopping point, so it is descriptive and cannot establish an architecture effect.
+The failed positive control and the single-seed validation design leave recurrent capacity and attention placement unresolved.
+One next experiment is a compact transformer-only curriculum that starts with `N = 4–16` and expands the training loads once the transformer clears the same fixed `N = 16` validation gate.
+
+Reproduce the compact curve and table from the recorded validation logs with `python scripts/analyze_mqar.py --validation-dir checkpoints/mqar_compact --out results/mqar_compact`.
 
 ### References
 
